@@ -19,20 +19,31 @@ def sendCommand(cmd):
 def getResult(timeout=100):
     res=""
     i=0
-    while '\r' not in res and i<200:
+    error = False
+    while '\r' not in res and i<20:
         try:
             res+="".join([chr(i) for i in dev.read(0x81, 8, timeout) if i!=0x00])
         except usb.core.USBError as e:
             if e.errno == 110:
-                print("error")
+                error = True
                 pass
             else:
                 print("fatal error")
                 raise
         i+=1
-    crc = res[len(res)-2:]
-    values = res[:-2]
-    print(crc16.crc16xmodem(values.encode('utf-8')))
+
+    if error:
+        return "error"
+
+    crc = res[len(res)-3:-1]
+    values = res[:-3]
+
+    frame_crc_int = int.from_bytes([ord(crc[0]), ord(crc[1])], 'big')
+    computed_crc_int = crc16.crc16xmodem(values.encode('utf-8'))
+
+    if frame_crc_int != computed_crc_int:
+        return "Invalid CRC"
+
     return values
 
 
