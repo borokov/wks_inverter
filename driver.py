@@ -77,21 +77,31 @@ class QPGS0(object):
         self.b = value_array[1] # 92931712101861 
         self.c = value_array[2] # L
         self.d = float(value_array[3]) # 0
-        self.e_voltage_1 = float(value_array[4]) # =g: Tension de sortie onduleur [V]
+        self.e_voltage_1 = float(value_array[4]) # ~g: Tension de sortie onduleur [V]
         self.f = float(value_array[5]) # =h: Tension batterie ? Frequence sortie ?
-        self.g_voltage_2 = float(value_array[6]) # =e: Tension de sortie onduleur [V]
+        self.g_voltage_2 = float(value_array[6]) # ~e: Tension de sortie onduleur mais pas la même que e [V]
         self.h_voltage_3 = float(value_array[7]) # =f: Tension batterie ? Frequence sortie ?
         self.i = int(value_array[8]) # =q power [VA] en sortie
         self.j = int(value_array[9]) # =r power [W] en sortie
         self.k = float(value_array[10]) # charge en %
         self.l = float(value_array[11]) # Frequence sortie ? (~50)
-        self.m = int(value_array[12]) # =p intensité solaire ? [A]
+        self.m = int(value_array[12]) # =p
         self.o = float(value_array[14]) # puissance solaire ? [W]
         self.p = int(value_array[15]) # =o
         self.q = int(value_array[16]) # =i: power [VA] en sortie
         self.r = int(value_array[17]) # =j: power [W] en sortie
         self.s = int(value_array[18]) # =k
-        self.t = value_array[19] # 10100010
+        self.t = value_array[19] # 10100010 : bypass - ? - in solar - ? - ? - batterie - ?
+        # bitfield
+        self.t0 = int(value_array[19][0])
+        self.t1 = int(value_array[19][1])
+        self.t2 = int(value_array[19][2])
+        self.t3 = int(value_array[19][3])
+        self.t4 = int(value_array[19][4])
+        self.t5 = int(value_array[19][5])
+        self.t6 = int(value_array[19][6])
+        self.t7 = int(value_array[19][7])
+
         self.u = int(value_array[20]) # 0
         self.v = int(value_array[21]) # 1
         self.w = int(value_array[22]) # 50
