@@ -55,12 +55,12 @@ def get_frame(timeout=100):
                 error = True
 
             if not error:
-                print("ok")
+                #print("ok")
                 ok = True
 
         except Exception as e:
             error = True
-            print(repr(e))
+            raise
         
 
     return values
@@ -77,37 +77,38 @@ class QPGS0(object):
         self.b = value_array[1] # 92931712101861 
         self.c = value_array[2] # L
         self.d = float(value_array[3]) # 0
-        self.e_voltage_1 = float(value_array[4]) # ~g: Tension de sortie onduleur [V]
+        self.e_voltage_1 = float(value_array[4]) # ~g: Tension de sortie onduleur non stabilisé (EDF ?) [V]
         self.f = float(value_array[5]) # =h: Tension batterie ? Frequence sortie ?
-        self.g_voltage_2 = float(value_array[6]) # ~e: Tension de sortie onduleur mais pas la même que e [V]
-        self.h_voltage_3 = float(value_array[7]) # =f: Tension batterie ? Frequence sortie ?
+        self.g_voltage_2 = float(value_array[6]) # ~e: Tension de sortie onduleur stabilisé [V]
+        self.h_voltage_3 = float(value_array[7]) # =f: Frequence sortie ? [HZ]
         self.i = int(value_array[8]) # =q power [VA] en sortie
         self.j = int(value_array[9]) # =r power [W] en sortie
         self.k = float(value_array[10]) # charge en %
         self.l = float(value_array[11]) # Frequence sortie ? (~50)
-        self.m = int(value_array[12]) # =p
-        self.o = float(value_array[14]) # puissance solaire ? [W]
-        self.p = int(value_array[15]) # =o
+        self.m = int(value_array[12]) # =p Puissance solaire [A?] Qui passe a 0 quand on est pas en bypass ?
+        self.n = int(value_array[13]) #
+        self.o = float(value_array[14]) # tension solaire ? [V]
+        self.p = int(value_array[15]) # =o Puissance solaire [A?] Qui passe a 0 quand on est pas en bypass ?
         self.q = int(value_array[16]) # =i: power [VA] en sortie
         self.r = int(value_array[17]) # =j: power [W] en sortie
-        self.s = int(value_array[18]) # =k
+        self.s = int(value_array[18]) # =k charge en %
         self.t = value_array[19] # 10100010 : bypass - ? - in solar - ? - ? - batterie - ?
         # bitfield
-        self.t0 = int(value_array[19][0])
-        self.t1 = int(value_array[19][1])
-        self.t2 = int(value_array[19][2])
-        self.t3 = int(value_array[19][3])
-        self.t4 = int(value_array[19][4])
-        self.t5 = int(value_array[19][5])
-        self.t6 = int(value_array[19][6])
-        self.t7 = int(value_array[19][7])
+        self.t_0 = int(value_array[19][0]) # pas bypass ?
+        self.t_1 = int(value_array[19][1])
+        self.t_2 = int(value_array[19][2]) # in solar ?
+        self.t_3 = int(value_array[19][3])
+        self.t_4 = int(value_array[19][4])
+        self.t_5 = int(value_array[19][5]) # Passage en full solaire ?
+        self.t_6 = int(value_array[19][6]) # batterie en charge ?
+        self.t_7 = int(value_array[19][7])
 
         self.u = int(value_array[20]) # 0
         self.v = int(value_array[21]) # 1
         self.w = int(value_array[22]) # 50
         self.x = int(value_array[23]) # 240
         self.y = int(value_array[24]) # 30
-        self.z = int(value_array[25]) # =m
+        self.z = int(value_array[25]) # puissance solaire [A?]
         self.z1 = int(value_array[26]) # 0
 
     def __str__(self):
@@ -124,7 +125,56 @@ class QPGS0(object):
             "measurement": "solar.QPSG0",
             "fields": self.__dict__,
         }
-        print(pointValues)
+        #print(pointValues)
+
+        client = InfluxDBClient("plusdepanda.no-ip.org", 8086, "root", "root", "EDF")
+        client.write_points([pointValues])
+
+class QPIGS(object):
+    def __init__(self, frame):
+        # ensure first '(' is removed
+        if frame[0] == '(':
+            frame = frame[1:]
+
+        value_array = frame.split(' ')
+
+        self.a = float(value_array[0]) #
+        self.b = float(value_array[1]) #
+        self.c = float(value_array[2]) #
+        self.d = float(value_array[3]) #
+        self.e = int(value_array[4]) #
+        self.f = int(value_array[5]) #
+        self.g = int(value_array[6]) #
+        self.h = int(value_array[7]) #
+        self.i = float(value_array[8]) #
+        self.j = int(value_array[9]) #
+        self.k = int(value_array[10]) #
+        self.l = int(value_array[11]) #
+        self.m = int(value_array[12]) #
+        self.n = float(value_array[13]) #
+        self.o = float(value_array[14]) #
+        self.p = int(value_array[15]) #
+        self.q = int(value_array[16]) #
+        self.r = int(value_array[17]) #
+        self.s = int(value_array[18]) #
+        self.t = value_array[19] #
+        self.u = value_array[20] #
+
+    def __str__(self):
+        str = ""
+        for member in sorted(self.__dict__):
+            str += ("{}: {}\n".format(member, self.__dict__[member]))
+        return str
+
+    def to_json(self):
+        return json.dumps(self.__dict__)
+
+    def send(self):
+        pointValues = {
+            "measurement": "solar.QPIGS",
+            "fields": self.__dict__,
+        }
+        # print(pointValues)
 
         client = InfluxDBClient("plusdepanda.no-ip.org", 8086, "root", "root", "EDF")
         client.write_points([pointValues])
@@ -150,5 +200,10 @@ while True:
         res = get_frame()
         qpgs0 = QPGS0(res)
         qpgs0.send()
+
+        sendCommand('QPIGS')
+        res = get_frame()
+        qpigs = QPIGS(res)
+        qpigs.send()
     except:
         pass
