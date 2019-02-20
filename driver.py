@@ -4,6 +4,7 @@ import datetime
 import time
 from influxdb import InfluxDBClient
 import json
+import traceback
 
 
 def getCommand(cmd):
@@ -19,7 +20,7 @@ def sendCommand(cmd):
     encodedCmd = getCommand(cmd)
     dev.ctrl_transfer(0x21, 0x9, 0x200, 0, encodedCmd)
 
-def get_frame(timeout=100):
+def get_frame(timeout=500):
     values = ""
     ok = False
     while not ok:
@@ -32,10 +33,11 @@ def get_frame(timeout=100):
                 try:
                     res+="".join([chr(i) for i in dev.read(0x81, 8, timeout) if i!=0x00])
                 except usb.core.USBError as e:
-                    if e.errno == 110:
+                    if e.errno == 110: # timeout. This happen quite often
                         pass
                     else:
-                        error = True
+                        print(traceback.format_exc())
+                        raise
                 i+=1
 
             if len(res) < 3:
@@ -127,7 +129,6 @@ class QPGS0(object):
         }
         #print(pointValues)
 
-        client = InfluxDBClient("plusdepanda.no-ip.org", 8086, "root", "root", "EDF")
         client.write_points([pointValues])
 
 class QPIGS(object):
@@ -176,7 +177,6 @@ class QPIGS(object):
         }
         # print(pointValues)
 
-        client = InfluxDBClient("plusdepanda.no-ip.org", 8086, "root", "root", "EDF")
         client.write_points([pointValues])
 
 
@@ -198,6 +198,9 @@ while True:
     try:
         sendCommand('QPGS0')
         res = get_frame()
+
+        client = InfluxDBClient("plusdepanda.no-ip.org", 8086, "root", "root", "EDF")
+
         qpgs0 = QPGS0(res)
         qpgs0.send()
 
@@ -205,5 +208,21 @@ while True:
         res = get_frame()
         qpigs = QPIGS(res)
         qpigs.send()
-    except:
+
+        client.close()
+
+        time.sleep(10)
+    except ValueError:
+        client.close()
         pass
+    except IndexError:
+        client.close()
+        pass
+    except usb.core.USBError:
+        print(traceback.format_exc())
+        client.close()
+        pass
+    except Exception:
+        print(traceback.format_exc())
+        client.close()
+        raise
