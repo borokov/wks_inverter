@@ -53,7 +53,20 @@ and give it to our python usb driver. Here I had an error "Access denied ...". A
 sudo chmod 777 /dev/bus/usb/001/004
 ```
 
-where 001 and 004 are Bus and Device given by lsusb. I know, there is probably better to handle this but it works and OS configuration is rearly not the fun part here. I finally manage to make the small script below working:
+where 001 and 004 are Bus and Device given by lsusb.  Cleaner solution is to add:
+
+```console
+SUBSYSTEM=="usb", ATTR{idVendor}=="0665", ATTR{idProduct}=="5161", MODE=="0777"
+```
+
+At the end of /etc/udev/rules.d/99-com.rules and type
+
+```console
+sudo udevadm control --reload
+sudo udevadm trigger
+```
+
+After that, you might be able to execute folowing script:
 
 ```python
 import usb.core, usb.util, usb.control
