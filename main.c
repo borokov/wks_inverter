@@ -4,6 +4,10 @@
 
 #include <libusb-1.0/libusb.h>
 
+#define TRUE 1
+#define FALSE 0
+#define bool uint8_t
+
 
 unsigned short 
 crc16(char *ptr, int count)
@@ -79,102 +83,62 @@ void print_error(int error_code)
    }
 }
 
-char
-is_in(char value, char* buff, size_t buff_len)
-{
-   for ( int i = 0; i < buff_len; i++ )
-   {
-      if ( buff[i] == value )
-         return 255;
-   }
-   return 0;
-}
-
 void get_frame(libusb_device_handle* dev_handle)
 {
    char data[1024];
    memset(data, 0, sizeof(data));
    
-   char ok = 1;
+   bool ok = TRUE;
    char* data_ptr = data;
+
+   //-------------------------------------------------
+   // Read 8 bytes by 8 bytes until we found '\r'
+   // Note: device zeros bad to always send 8 bytes
+   char* end_of_frame = NULL;
    do
    {
-      while ( !is_in('\r', data, sizeof(data)) )
+      int actual_len = 0;
+      int rc = libusb_bulk_transfer(dev_handle, 0x81, data_ptr, 8, &actual_len, 1000);
+      if ( rc != 0 )
       {
-         int actual_len = 0;
-         int rc = libusb_bulk_transfer(dev_handle, 0x81, data_ptr, 8, &actual_len, 1000); // <-- Touche plus ça marche !!!
-         if ( rc != 0 )
-         {
-            print_error(rc);
-            if ( rc != LIBUSB_ERROR_TIMEOUT )
-               assert(0);
-         }
-         data_ptr += actual_len;
+         print_error(rc);
+         if ( rc != LIBUSB_ERROR_TIMEOUT )
+            assert(FALSE);
       }
+      data_ptr += actual_len;
+      // real frame ends with '\r' but device zeros pad to send 8 byte each time so frame len
+      // is not sum of all read bytes
+      end_of_frame = strstr(data, "\r");
+   } while( end_of_frame == NULL );
 
-      size_t buffer_len = data_ptr - data;
-      if ( buffer_len < 3 )
-         ok = 0;
 
+   //----------------------------------------------------
+   // Now check if frame is valid
+
+   // Remove last '\r'
+   size_t buffer_len = end_of_frame - data;
+
+   // We should have at least 1 byte of data and 2 bytes of CRC. Else, something goen wrong. 
+   if ( buffer_len >= 3 )
+   {
       uint16_t computed_crc = crc16(data, buffer_len - 2);
-      uint16_t frame_crc = *((uint16_t*) (data + buffer_len - 2));
+
+      char* crc_ptr = data + buffer_len - 2;
+      uint16_t frame_crc = (crc_ptr[0] << 8) | crc_ptr[1];
 
       if ( computed_crc != frame_crc )
-         ok = 0;
-
-   } while ( !ok );
-
-   printf("data: %s\n", data);
-
-   //assert (rc == 0);
-/*
-   values = ""
-   bool ok = false
-   while (!ok)
-   {
-      bool error = false
-      char res[1024];
-      int i = 0
-      while ( '\r' not in res and i<20 )
       {
-         try
-         {
-            res += "".join([chr(i) for i in dev.read(0x81, 8, timeout) if i!=0x00])
-         }
-         catch( usb.core.USBError as e: )
-         {
-            if e.errno == 110: // timeout. This happen quite often
-               pass
-            else:
-               print(traceback.format_exc())
-            throw;
-         }
-         i++;
-
-         if len(res) < 3
-         {
-            error = True
-            break;
-         }
-
-         crc = res[len(res)-3:-1]
-         values = res[:-3]
-
-         frame_crc_int = int.from_bytes([ord(crc[0]), ord(crc[1])], 'big')
-         computed_crc_int = crc16.crc16xmodem(values.encode('utf-8'))
-
-         if frame_crc_int != computed_crc_int
-            error = True
-
-         if len(values) < 2
-            error = True
-
-         if not error
-            ok = True
-      }  
+         printf("bad CRC\n");
+         ok = FALSE;
+      }
    }
-   print("Out get_frame")
-   return values*/
+   else
+   {
+      ok = FALSE;
+   }
+
+   if ( ok )
+      printf("data: %s\n", data);
 }
 
 int main()
