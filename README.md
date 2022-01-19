@@ -1,3 +1,7 @@
+# WARNING #
+This repos has been moved to gitlab and is no more maintained. See here for up to date version:
+https://gitlab.com/borokov/wks_inverter
+
 # Reverse ingeneering protocole #
 
 Hightly inspired by http://allican.be/blog/2017/01/28/reverse-engineering-cypress-serial-usb.html
